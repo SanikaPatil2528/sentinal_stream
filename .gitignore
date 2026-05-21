@@ -1,0 +1,13 @@
+# Python environment and cache files
+__pycache__/
+*.pyc
+api_failure_detect/
+.venv/
+
+# Project Data & Models (We don't push heavy datasets or trained model binary files to Git)
+data/*.csv
+models/*.pkl
+models/*.joblib
+
+# Operating System specific files
+.DS_Store
