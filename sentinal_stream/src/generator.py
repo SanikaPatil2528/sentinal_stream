@@ -34,9 +34,10 @@ def generate_base_metrics(days=1,interval_min=1):
 
     data={
         'timestamp':timestamps,
-        'request_per_sec':requests,
+        'requests_per_sec':requests,
         'cpu_utilization_pct':np.clip(memory_utilization,0,100),
-        'latencyy_ms':np.clip(latency_ms,0,None),
+        'memory_utilization_pct': np.clip(memory_utilization,0,100),
+        'latency_ms':np.clip(latency_ms,0,None),
         'error_rate_pct':np.clip(error_rate,0,100)
     }
 
