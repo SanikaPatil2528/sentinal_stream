@@ -27,24 +27,30 @@ def inject_point_anomalies(df,probability=0.01):
 
 def inject_memory_leak(df,start_fraction=0.75):
     """
-    Simulates a gradual, linear memory leak that begins randomly in the 
-    latter portion of the dataset and steadily climbs until it forces a crash.
+    Simulates a completely randomized, gradual memory leak.
+    It begins at a random time in the latter half of the day
+    and climbs at a completely random rate.
     """
     df_anomaly=df.copy()
     total_rows=len(df_anomaly)
 
-    # Determine the starting row index for the leak (e.g.,around the 75% mark of the stream)
-    start_idx=int(total_rows*start_fraction)
-    # Linearly compound RAM usage minute-by-minute until it pushes past 95%+ 
-    leak_slope=np.linspace(0,60,total_rows-start_idx) 
-    # max base memory was 45+1.5=47.5 and after spike can rise upto 47.5+60 =107.5
-    # if would have been (0,50) never crosses 98% mark in future code
+    # RANDOMIZATION 1: Pick a random starting point between 50% and 85% of the day
+    random_start_fraction = np.random.uniform(0.50, 0.85)
+    start_idx = int(total_rows * random_start_fraction)
 
-    for i,idx in enumerate(range(start_idx,total_rows)):
-        df_anomaly.loc[idx,'memory_utilization_pct']+=leak_slope[i]
+    # RANDOMIZATION 2: Pick a random max leak severity between 40% and 75% RAM inflation
+    random_max_leak = np.random.uniform(40.0, 75.0)
+
+    # Generate the linear slope using our randomized limits
+    remaining_minutes = total_rows - start_idx
+    leak_slope = np.linspace(0, random_max_leak, remaining_minutes)
+
+    # Inject the randomized leak into the timeline
+    for i, idx in enumerate(range(start_idx, total_rows)):
+        df_anomaly.loc[idx, 'memory_utilization_pct'] += leak_slope[i]
 
         # Enforce physical maximum upper bound ceiling
-        if df_anomaly.loc[idx,'memory_utilization_pct']>98.0:
-            df_anomaly.loc[idx,'memory_utilization_pct']=98.0
+        if df_anomaly.loc[idx, 'memory_utilization_pct'] > 98.0:
+            df_anomaly.loc[idx, 'memory_utilization_pct'] = 98.0
     
     return df_anomaly
