@@ -11,3 +11,5 @@ models/*.joblib
 
 # Operating System specific files
 .DS_Store
+Project_Notes.pages
+Roadmap.pages

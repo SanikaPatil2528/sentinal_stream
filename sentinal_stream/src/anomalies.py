@@ -25,6 +25,7 @@ def inject_point_anomalies(df,probability=0.01):
     return df_anomaly
 
 
+
 def inject_memory_leak(df,start_fraction=0.75):
     """
     Simulates a completely randomized, gradual memory leak.
