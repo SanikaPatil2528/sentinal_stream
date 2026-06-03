@@ -88,22 +88,59 @@ def main():
                 # Step 5: Make the inference prediction
                 prediction=model.predict(X_inference)[0] ## o/p is as [-1] so grab it with [0] in list
 
-                # Step 6: Clear and readable tracking output
+                # Step 6: clear and readable tracking output
                 timestamp=metrics_packet.get('timestamp','UNKNOWN')
-                
-                # Grab and format metrics to 1 decimal place for clean reading
-                cpu = float(metrics_packet.get('cpu_utilization_pct', 0))
+
+                cpu=float(metrics_packet.get('cpu_utilization_pct',0))
+                mem = float(metrics_packet.get('memory_utilization_pct', 0))
                 latency = float(metrics_packet.get('latency_ms', 0))
                 error = float(metrics_packet.get('error_rate_pct', 0))
+                requests = float(metrics_packet.get('requests_per_sec', 0))
 
-                if prediction == -1:
-                    print(f"\n🚨 [ANOMALY DETECTED] at {timestamp}!")
-                    print(f"   CPU: {cpu:.1f}% | Latency: {latency:.1f}ms | Error: {error:.1f}%")
-                    print("-" * 60)
+                
+                ## FORECASTING LOGIC: Time-To-Failure (TTF) Countdown math
+                ttf_minutes=None
+                mem_oldest=df_window['memory_utilization_pct'].iloc[0]
+                mem_newest=df_window['memory_utilization_pct'].iloc[-1]
+
+                # Rate of change over our window interval (9 intervals between 10 rows)
+                mem_velocity_per_min=(mem_newest-mem_oldest)/9.0
+                # memory trend line actively expanding
+                # total change over window=0.05 * 9 intervals= 0.45%
+                # This means memory has to steadily increase by at least $0.45\%$ across your 10-row window before the countdown engine is allowed to activate.
+                if mem_velocity_per_min>0.05: 
+                    mem_headroom=100.0-mem
+                    ttf_minutes=mem_headroom/mem_velocity_per_min
+
+                
+                ### DIAGNOSTIC LOGIC: Root Cause Fingerprinting
+                root_cause="None"
+                if prediction==-1:
+                    # Look back at historical context of the buffer before this row hit
+                    avg_mem=df_window['memory_utilization_pct'].iloc[:-1].mean()
+                    avg_requests=df_window['requests_per_sec'].iloc[:-1].mean()
+                    avg_error=df_window['error_rate_pct'].iloc[:-1].mean()
+
+                    if mem>avg_mem+8.0 and requests<=avg_requests*1.2:
+                        root_cause="Resource Exhaustion (Memory Leak)"
+                    elif error>avg_error + 5.0:
+                        root_cause="Downstream API Gateway Failure"
+                    elif requests>avg_requests*1.5:
+                        root_cause="High Traffic Volume Spikes (Potential DDoS)"
+                    else:
+                        root_cause="Unclassified  System Instability"
+
+                # Render output display
+                if prediction==-1:
+                    print(f"\n[CRITICAL ANOMALY DETECTED] at {timestamp}!")
+                    print(f"    Root Cause Identity: {root_cause}")
+                    if ttf_minutes is not None and root_cause=="Resource Exhaustion (Memory Leak)":
+                        print(f"    Estimated Stability : CRASH IMMINENT IN {ttf_minutes:.1f} MINUTES")
+                    print(f"    Telemetry Snapshot: CPU: {cpu:.1f}% | RAM: {mem:.1f}% | Latency: {latency:.1f}ms | Error: {error:.1f}%")
+                    print("-"*75)
                 else:
-                    # 💡 Trick: Adding '\033[K' clears any leftover characters from the previous line 
-                    # when using '\r', ensuring it never looks jumbled!
-                    print(f"🟢 [NORMAL] {timestamp} - CPU: {cpu:.1f}% | Latency: {latency:.1f}ms\033[K", end="\r")
+                    # Trick: Adding '\033[K' clears any leftover characters from the previous line 
+                    print(f"🟢 [NORMAL] {timestamp} - CPU: {cpu:.1f}% | RAM: {mem:.1f}% | Latency: {latency:.1f}ms\033[K", end="\r")
 
 
 if __name__=="__main__":
